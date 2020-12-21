@@ -6,22 +6,27 @@ from matplotlib import colors
 from datetime import datetime
 
 class HillModel:
-    """Takes point cloud data in ESRI ASCII format and converts it to XYZ format"""
+    """Hill Model Class used to create data visualization media of hills and particle landing zones for TERRAIN EFFECTS ON FIREBRAND TRANSPORT DYNAMICS by JOHAN BIN MOHAMMAD NAZRI"""
 
     def __init__(self, input_file):
-        """Initialize file to be converted"""
+        """Takes a DEM file in the ESRI ASCII format"""
         self.input_file = input_file
+        self.len = self.wid = self.dx = self.dy = self.alpha = self.sou = None
 
-        # For coordinate transformation later
-        self.dx = None 
-        self.dy = None
-        self.alpha = None
+    def save_file(self, file_name="HillData.txt"):
+        """Saves the DEM file in the XYZ format"""
+
+        txt_file = open(file_name,"w")
+
+        for j in range(0,self.nrows):
+            for i in range(0,self.ncols):
+                txt_file.write(f"{i*self.cellsize}\t{j*self.cellsize}\t{self.point_data[j][i]}\n") 
+        txt_file.close()
 
     def EA2XYZ(self, x_smooth=0, y_smooth=0, z_offset=0):
         """Converts from ESRI ASCII to XYZ"""
-        # x_smooth & y_smooth are percentage values
-        # The values are used to help move the values of the elevation at the edges to be closer to 0
-        # z_offset is used to translate the elevation by a constant amount
+        """x_smooth & y_smooth are percentage values. The values are used to help move the values of the elevation at the edges to be closer to 0"""
+        """z_offset is used to translate the elevation by a constant amount"""
 
         data_points = []
         count = 0
@@ -85,40 +90,44 @@ class HillModel:
 
                 self.point_data = p_data
 
-    def save_file(self, file_name="HillData.txt"):
-        """Saves the point cloud data in the XYZ format"""
+        # Default naming convention for XYZ file
+        time_obj = datetime.now()
+        new_file = f"{time_obj.year}-{time_obj.month}-{time_obj.day}-{time_obj.hour}{time_obj.minute}-{self.input_file[:-4]}.txt"
+        self.save_file(new_file)
 
-        txt_file = open(file_name,"w")
-
-        for j in range(0,self.nrows):
-            for i in range(0,self.ncols):
-                txt_file.write(f"{i*self.cellsize}\t{j*self.cellsize}\t{self.point_data[j][i]}\n") 
-        txt_file.close()
-
-    def hill_map(self, domain_length, domain_width, delta_x=None, delta_y=None, angle=None):
+    def hill_map(self, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, combo=None):
         """Generate contour plot of the hill"""
-        # domain_length & domain_width are the length and width of the domain in ANSYS Fluent
-        # delta_x, delta_y & angle are the transformations applied to the hill in Designmodeler
+        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+        """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
 
-        self.len = domain_length
-        self.wid = domain_width
-
-        # Checks for any previous entry for delta_x, delta_y and angle
-        if delta_x==None:
-            if self.dx==None:
-                print("Err")
+        # Check for previous entry for values
+        if domain_length is None:
+            if self.len is None:
+                print("Domain length is missing")
         else:
-            self.dx = delta_x
+            self.len = domain_length
 
-        if delta_y==None:
-            if self.dy==None:
-                print("Err")
+        if domain_width is None:
+            if self.wid is None:
+                print("Domain width is missing")
         else:
-            self.dy = delta_y
+            self.wid = domain_width
 
-        if angle==None:
-            if self.alpha==None:
-                print("Err")
+        if x_offset is None:
+            if self.dx is None:
+                print("X offset is missing")
+        else:
+            self.dx = x_offset
+
+        if y_offset is None:
+            if self.dy is None:
+                print("Y offset is missing")
+        else:
+            self.dy = y_offset
+
+        if angle is None:
+            if self.alpha is None:
+                print("Angle of rotation is missing")
         else:
             self.alpha = angle*np.pi/180
 
@@ -153,116 +162,273 @@ class HillModel:
                 t_y_grid[j][i] = y_prime+self.dy
 
         # Plots contour plot
+        if combo == "Yes":
+             self.t_x_grid, self.t_y_grid = t_x_grid, t_y_grid
+        else:
+            fig, ax = plt.subplots()
+            cs = ax.contour(t_y_grid, t_x_grid, self.point_data, cmap = 'YlOrBr', alpha = 0.75)
+            plt.xlabel('Y-Position', fontsize=12)
+            plt.xlim(self.wid, 0)
+            plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
+            plt.ylim(0,self.len)
+            plt.show()
+
+    def add_particles(self, particle_file, domain_length=None, domain_width=None):
+        """Takes data from particle solution history in the ensight format"""
+        """particle_file is the particle solution history file in the ensight format"""
+        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+
+        # Check for previous entry for values
+        if domain_length is None:
+            if self.len is None:
+                print("Domain length is missing")
+        else:
+            self.len = domain_length
+
+        if domain_width is None:
+            if self.wid is None:
+                print("Domain width is missing")
+        else:
+            self.wid = domain_width
+
+        print(f"Reading {particle_file}")
+        particles = []
+        count = 0
+
+        # Takes values from file
+        with open(particle_file) as points:
+            data_reader = csv.reader(points, delimiter=' ')
+            for data in data_reader:
+                while '' in data:
+                    data.remove('')
+                if count > 2:
+                    for number in data:
+                        if len(data)<4: # Check for negative numbers
+                            bad_num = data[-1]
+                            # print(bad_num)
+                            temp_num = []
+                            for char in bad_num:
+                                temp_num.append(char)
+                            exp_index = bad_num.index('e')
+                            y_val = ''.join(bad_num[0:exp_index+4])
+                            z_val = ''.join(bad_num[exp_index+4:])
+                            data = data[0:2]
+                            data.append(y_val)
+                            data.append(z_val)
+                    for index,number in enumerate(data):
+                        data[index] = float(number)
+                count = count + 1
+                particles.append(data)
+                
+        print(f"{len(particles[3:])} particles released.")
+        part_data = []
+
+        # Check if particle has landed
+        for point in particles[3:]:
+            if point[1]>self.len*0.9 or point[2]<self.wid*0.1 or point[2]>self.wid*0.9:
+                if point[3]<0.01:
+                    part_data.append(point)
+            else:
+                part_data.append(point)
+
+        self.trap_particles = part_data
+        print(f"{len(particles[3:])-len(self.trap_particles)} particle(s) escaped.")
+    
+    def particle_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, combo=None):
+        """Plots contour map of the particle landing zones"""
+        """particle_file is the particle solution history file in the ensight format"""
+        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+        """grid_size is the desired size of the landing zones"""
+        """combo is for use with alternate graphs"""
+
+        # Calls the add_particles method to get data from file
+        self.add_particles(particle_file)
+        
+        # Check for previous entry for values
+        if domain_length is None:
+            if self.len is None:
+                print("Domain length is missing")
+        else:
+            self.len = domain_length
+
+        if domain_width is None:
+            if self.wid is None:
+                print("Domain width is missing")
+        else:
+            self.wid = domain_width
+
+        # Generate particle landing zone grid
+        p_row = []
+        p_count = []
+        for j in range(0,self.wid//grid_size):
+            for i in range(0,self.len//grid_size):
+                p_row.append(0)
+            p_count.append(p_row)
+            p_row = []
+
+        # Counts number of particles in each grid square
+        for particle in self.trap_particles:
+            p_count[int(round(particle[2]//grid_size))][int(round(particle[1]//grid_size))] += 1
+        self.p_count = p_count
+
+        # Grid for contour plot
+        x_co = np.linspace(0,self.len,self.len//grid_size)
+        y_co = np.linspace(0,self.wid,self.wid//grid_size)
+        x_grid, y_grid = np.meshgrid(x_co,y_co)
+
+        if combo == "Yes":
+            self.x_grid, self.y_grid = x_grid, y_grid
+        else:
+            fig, ax = plt.subplots()
+            cs = ax.contourf(y_grid, x_grid, p_count, norm=colors.LogNorm(), cmap='plasma')
+            cbar = fig.colorbar(cs)
+            plt.xlabel('Y-Position', fontsize=12)
+            plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
+            plt.show()
+
+    def combo_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None):
+        """Plots a contour plot containing both the elevation of the hill and the particle landing zones"""
+        """particle_file is the particle solution history file in the ensight format"""
+        """grid_size is the desired size of the landing zones"""
+        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+        """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
+
+                # Check for previous entry for values
+        if domain_length is None:
+            if self.len is None:
+                print("Domain length is missing")
+        else:
+            self.len = domain_length
+
+        if domain_width is None:
+            if self.wid is None:
+                print("Domain width is missing")
+        else:
+            self.wid = domain_width
+
+        if x_offset is None:
+            if self.dx is None:
+                print("X offset is missing")
+        else:
+            self.dx = x_offset
+
+        if y_offset is None:
+            if self.dy is None:
+                print("Y offset is missing")
+        else:
+            self.dy = y_offset
+
+        if angle is None:
+            if self.alpha is None:
+                print("Angle of rotation is missing")
+        else:
+            self.alpha = angle*np.pi/180
+
+        # Calls hill_map and particle_map methods to get contour plot arguments
+        self.hill_map(domain_length=self.len, domain_width=self.wid, x_offset=self.dx, y_offset=self.dy, angle=angle, combo="Yes")
+        self.particle_map(particle_file, grid_size, combo="Yes")
+
+        # Plots combined contour plot
         fig, ax = plt.subplots()
-        cs = ax.contour(t_y_grid, t_x_grid, self.point_data, cmap = 'YlOrBr', alpha = 0.75)
-        plt.ylim(0,self.len)
-        plt.gca().invert_xaxis()
+        cs = ax.contour(self.t_y_grid, self.t_x_grid, self.point_data, cmap = 'YlOrBr', alpha = 0.75)
+        cs = ax.contourf(self.y_grid, self.x_grid, self.p_count, norm=colors.LogNorm(), cmap='plasma')
+        cbar = fig.colorbar(cs)
+
         plt.xlabel('Y-Position', fontsize=12)
+        plt.xlim(self.wid, 0)
         plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
+        plt.ylim(0,self.len)
         plt.show()
 
-    # def particle_data(particle_file, domain_length=3200, delta_x=None, delta_y=None, angle=None, grid_size = 5):
-    # print(f"Reading {particle_file}")
-    # data_points = []
-    # count = 0
+    def landing_bar(self, particle_file, source=None, grid_size=5, domain_length=None, domain_width=None):
+        """Plots the distribution of landed particles downwind from the heat source"""
+        """particle_file is the particle solution history file in the ensight format"""
+        """source is the x-position of the heat source"""
+        """grid_size is the desired size of the landing zones"""
+        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
-    # with open(particle_file) as points:
-    #     data_reader = csv.reader(points, delimiter=' ')
-    #     for data in data_reader:
-    #         while '' in data:
-    #             data.remove('')
-    #         if count > 2:
-    #             for number in data:
-    #                 if len(data)<4:
-    #                     bad_num = data[-1]
-    #                     # print(badNum)
-    #                     temp_num = []
+        # Check for previous entry for values
+        if domain_length is None:
+            if self.len is None:
+                print("Domain length is missing")
+        else:
+            self.len = domain_length
 
-    #                     for char in badNum:
-    #                         temp_num.append(char)
-    #                     exp_index = bad_num.index('e')
-    #                     y_val = ''.join(bad_num[0:exp_index+4])
-    #                     z_val = ''.join(bad_num[exp_index+4:])
-    #                     data = data[0:2]
-    #                     data.append(y_val)
-    #                     data.append(z_val)
-    #             for index,number in enumerate(data):
-    #                 data[index] = float(number)
-    #         count = count + 1
-    #         particle_points.append(data)
-            
-    # print(f"{len(particle_points[3:])} particles released.") # line 3 onwards
-    # particle_data = []
-    # for particle_point in particle_points[3:]:
-    #     if particle_point[1]>domain_length*0.75 and particle_point[3]<0.1:
-    #         particle_data.append(particle_point)
-    #     elif particle_point[1]<domain_length*0.75:
-    #         particle_data.append(particle_point)
+        if domain_width is None:
+            if self.wid is None:
+                print("Domain width is missing")
+        else:
+            self.wid = domain_width
 
-    # if delta_x==None:
-    #     if self.dx==None:
-    #         print("Err")
-    # else:
-    #     self.dx = delta_x
+        if source is None:
+            if self.sou is None:
+                print("Fire source location is missing")
+        else:
+            self.sou = source
 
-    # if delta_y==None:
-    #     if self.dy==None:
-    #         print("Err")
-    # else:
-    #     self.dy = delta_y
+        self.particle_map(particle_file, grid_size=grid_size, domain_length=self.len, domain_width=domain_width, combo="Yes")
 
-    # if angle==None:
-    #     if self.dx==None:
-    #         print("Err")
-    # else:
-    #     self.alpha = angle*np.pi/180
+        # Generate grid for landing zones
+        x_co = np.linspace(0,self.len,self.len//grid_size)
 
-    # transformed_particles = []
+        # Counts number of particles that land x distance away from source
+        bar_count = [sum(row[i] for row in self.p_count) for i in range(len(self.p_count[0]))]
 
-    # for particle in particle_data:
-    #     x_prime = particle[1]-self.dx
-    #     y_prime = particle[2]-self.dy
-    #     x_prime_prime = x_prime*np.cos(-self.alpha)-(y_prime)*np.sin(-self.alpha)
-    #     y_prime_prime = x_prime*np.sin(-self.alpha)+y_prime*np.cos(-self.alpha)
-    #     transformed_particles.append([particle[0],x_prime_prime,y_prime_prime,particle[3]])
+        # Plots bar chart
+        fig, ax = plt.subplots()
+        cs =ax.bar(x_co-self.sou, bar_count, width = 5, alpha = 0.5)
+        plt.xlim(0,self.len-self.sou)
+        plt.xlabel('Distance from the Heat Source', fontsize=12)
+        plt.ylabel('Number of Landed Particles', fontsize=12)
+        plt.show()
 
-    # trapped_particles = []
-    # for i in range(0,len(transformed_particles)):
-    #     if transformed_particles[i][3]<1000:
-    #         trapped_particles.append(particle_data[i])
-    # print(f"{len(trapped_particles)} particles trapped.")
-    
+    def sum_line(self, particle_file, source=None, grid_size=5, domain_length=None, domain_width=None):
+        """Plots the cumulative sum of landed particles x distance away from the heat source"""
+        """particle_file is the particle solution history file in the ensight format"""
+        """source is the x-position of the heat source"""
+        """grid_size is the desired size of the landing zones"""
+        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
+        # Check for previous entry for values
+        if domain_length is None:
+            if self.len is None:
+                print("Domain length is missing")
+        else:
+            self.len = domain_length
 
-    # x_co = np.linspace(0,3200,3200//grid_size)
-    # y_co = np.linspace(0,4000,4000//grid_size)
+        if domain_width is None:
+            if self.wid is None:
+                print("Domain width is missing")
+        else:
+            self.wid = domain_width
 
-    # x_grid, y_grid = np.meshgrid(x_co,y_co)
+        if source is None:
+            if self.sou is None:
+                print("Fire source location is missing")
+        else:
+            self.sou = source
 
-    # XGrid, YGrid = np.meshgrid(np.linspace(0, 133*20, 133),np.linspace(0, 126*20, 126) )
+        # Calls particle_map method to obtain particle landing locations
+        self.particle_map(particle_file, grid_size=grid_size, domain_length=self.len, domain_width=domain_width, combo="Yes")
 
-    # particle_count = []
-    # particle_row = []
-    # transAskervein = []
-    # transXGrid = []
-    # transYGrid = []
-    # empty_row = []
-    # for j in range(0,126):
-    #     for i in range(0,133):
-    #         empty_row.append(0)
-    #     transXGrid.append(empty_row)
-    #     empty_row = []
+        # Generates grid for particle landing zones
+        x_co = np.linspace(0,self.len,self.len//grid_size)
+        bar_count = [sum(row[i] for row in self.p_count) for i in range(len(self.p_count[0]))]
 
-    # empty_row = []
-    # for j in range(0,126):
-    #     for i in range(0,133):
-    #         empty_row.append(0)
-    #     transYGrid.append(empty_row)
-    #     empty_row = []
+        # Converts simple count to cumulative sum
+        line_count = []
+        l_count = 0
 
-    # for j in range(0,126): # row
-    #     for i in range(0,133): # col            
-    #         x_prime = XGrid[j][i]*np.cos(angle)-YGrid[j][i]*np.sin(angle)
-    #         y_prime = XGrid[j][i]*np.sin(angle)+YGrid[j][i]*np.cos(angle)
-    #         transXGrid[j][i] = x_prime+delta_x
-    #         transYGrid[j][i] = y_prime+delta_y
+        for count in bar_count:
+            l_count += count
+            line_count.append(l_count)
+
+        # Plots line graph
+        fig, ax = plt.subplots()
+        cs =ax.plot(x_co-self.sou, line_count)
+        plt.xlim(0,self.len-self.sou)
+        plt.fill_between(x_co-self.sou, line_count)
+        plt.xlabel('Distance from the Heat Source', fontsize=12)
+        plt.ylim(0, line_count[-1]*1.1)
+        plt.ylabel('Cumulative Sum of Landed Particles', fontsize=12)
+        plt.show()
