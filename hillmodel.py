@@ -13,8 +13,54 @@ class HillModel:
         self.input_file = input_file
         self.len = self.wid = self.dx = self.dy = self.alpha = self.sou = None
 
-    def save_file(self, file_name="HillData.txt"):
+    def var_check(self, domain_length="Empty", domain_width="Empty", x_offset="Empty", y_offset="Empty", angle="Empty", source="Empty"):
+        """Check if variables have been defined previously"""
+
+        if domain_length != "Empty":
+            if domain_length is None:
+                if self.len is None:
+                    print("Domain length is missing.")
+            else:
+                self.len = domain_length
+
+        if domain_width != "Empty":
+            if domain_width is None:
+                if self.wid is None:
+                    print("Domain width is missing.")
+            else:
+                self.wid = domain_width
+                
+        if x_offset != "Empty":
+            if x_offset is None:
+                if self.dx is None:
+                    print("X offset is missing.")
+            else:
+                self.dx = x_offset
+                
+        if y_offset != "Empty":
+            if y_offset is None:
+                if self.dy is None:
+                    print("Y offset is missing.")
+            else:
+                self.dy = y_offset
+
+        if angle != "Empty":
+            if angle is None:
+                if self.alpha is None:
+                    print("Angle of rotation is missing.")
+            else:
+                self.alpha = angle*np.pi/180
+
+        if source != "Empty":
+            if source is None:
+                if self.sou is None:
+                    print("Fire source location is missing")
+            else:
+                self.sou = source
+
+    def save_file(self, file_name="XYZHillData.txt"):
         """Saves the DEM file in the XYZ format"""
+        """file_name is the desired file name"""
 
         txt_file = open(file_name,"w")
 
@@ -23,10 +69,12 @@ class HillModel:
                 txt_file.write(f"{i*self.cellsize}\t{j*self.cellsize}\t{self.point_data[j][i]}\n") 
         txt_file.close()
 
-    def EA2XYZ(self, x_smooth=0, y_smooth=0, z_offset=0):
+    def EA2XYZ(self, x_smooth=0, y_smooth=0, z_offset=0, preview="N", save="Y"):
         """Converts from ESRI ASCII to XYZ"""
         """x_smooth & y_smooth are percentage values. The values are used to help move the values of the elevation at the edges to be closer to 0"""
         """z_offset is used to translate the elevation by a constant amount"""
+        """preview ("Y"/"N") allows user to preview the surface model"""
+        """save allows user to save the XYZ file"""
 
         data_points = []
         count = 0
@@ -44,7 +92,7 @@ class HillModel:
                 
         self.ncols = int(data_points[0][1]) # Reads number of columns
         self.nrows = int(data_points[1][1]) # Reads number of rows
-        self.cellsize = int(data_points[2][1]) # Reads cell size
+        self.cellsize = float(data_points[2][1]) # Reads cell size
         nodata_value = int(data_points[3][1]) # Reads no data value
 
         # Obtains elevation values
@@ -90,46 +138,51 @@ class HillModel:
 
                 self.point_data = p_data
 
-        # Default naming convention for XYZ file
-        time_obj = datetime.now()
-        new_file = f"{time_obj.year}-{time_obj.month}-{time_obj.day}-{time_obj.hour}{time_obj.minute}-{self.input_file[:-4]}.txt"
-        self.save_file(new_file)
+        # Preview of the 3D surface
+        if preview == "Y":
+            # Generate grid
+            x_co = np.linspace(0, self.ncols*self.cellsize, self.ncols)
+            y_co = np.linspace(0, self.nrows*self.cellsize, self.nrows)
+            x_grid, y_grid = np.meshgrid(x_co,y_co)
 
-    def hill_map(self, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, combo=None):
+            # Find hill top height
+            max_list = []
+            for row in self.point_data:
+                max_list.append(max(row))
+            self.ht_height = max(max_list)
+
+            # Find maximum between 3 axes
+            scale_max = max([self.ncols*self.cellsize, self.nrows*self.cellsize, self.ht_height])
+
+            # Plot 3-D surface plot
+            fig = plt.figure()
+            ax = fig.gca(projection='3d')
+            surf = ax.plot_surface(y_grid, x_grid, np.array(self.point_data))
+            ax.set_xlim(0,scale_max)
+            ax.set_ylim(0,scale_max)
+            ax.set_zlim(0,scale_max)
+            plt.show()
+
+        # Calls save_file method if save is requested
+        if save == "Y":
+            # Default naming convention for XYZ file
+            time_obj = datetime.now()
+            new_file = f"{time_obj.year}-{time_obj.month}-{time_obj.day}-{time_obj.hour}{time_obj.minute}-{self.input_file[:-4]}.txt"
+
+            self.save_file(new_file)
+            print(f"The converted XYZ file was saved as {new_file}")
+        else:
+            print("The converted XYZ file was not saved.")
+
+    def hill_map(self, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, inc_size=10, combo=None):
         """Generate contour plot of the hill"""
         """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
         """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
+        """inc_size is the size of the increment for the contours"""
+        """combo is for use with other plots"""
 
         # Check for previous entry for values
-        if domain_length is None:
-            if self.len is None:
-                print("Domain length is missing")
-        else:
-            self.len = domain_length
-
-        if domain_width is None:
-            if self.wid is None:
-                print("Domain width is missing")
-        else:
-            self.wid = domain_width
-
-        if x_offset is None:
-            if self.dx is None:
-                print("X offset is missing")
-        else:
-            self.dx = x_offset
-
-        if y_offset is None:
-            if self.dy is None:
-                print("Y offset is missing")
-        else:
-            self.dy = y_offset
-
-        if angle is None:
-            if self.alpha is None:
-                print("Angle of rotation is missing")
-        else:
-            self.alpha = angle*np.pi/180
+        self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
 
         # Generates grid using original coordinates
         x_grid, y_grid = np.meshgrid(np.linspace(0, self.ncols*self.cellsize, self.ncols),np.linspace(0, self.nrows*self.cellsize, self.nrows) )
@@ -161,12 +214,17 @@ class HillModel:
                 t_x_grid[j][i] = x_prime+self.dx
                 t_y_grid[j][i] = y_prime+self.dy
 
-        # Plots contour plot
+        # For use with other graphs
         if combo == "Yes":
              self.t_x_grid, self.t_y_grid = t_x_grid, t_y_grid
         else:
+            # Calculate contour levels
+            z_max = inc_size + inc_size*round(self.ht_height/inc_size)
+            scale = np.arange(inc_size, z_max, inc_size)
+
+            # Plot contour plot
             fig, ax = plt.subplots()
-            cs = ax.contour(t_y_grid, t_x_grid, self.point_data, cmap = 'YlOrBr', alpha = 0.75)
+            cs = ax.contour(t_y_grid, t_x_grid, self.point_data, scale, cmap = 'YlOrBr', alpha = 0.75)
             plt.xlabel('Y-Position', fontsize=12)
             plt.xlim(self.wid, 0)
             plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
@@ -179,17 +237,7 @@ class HillModel:
         """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
-        if domain_length is None:
-            if self.len is None:
-                print("Domain length is missing")
-        else:
-            self.len = domain_length
-
-        if domain_width is None:
-            if self.wid is None:
-                print("Domain width is missing")
-        else:
-            self.wid = domain_width
+        self.var_check(domain_length=domain_length, domain_width=domain_width)
 
         print(f"Reading {particle_file}")
         particles = []
@@ -245,17 +293,7 @@ class HillModel:
         self.add_particles(particle_file)
         
         # Check for previous entry for values
-        if domain_length is None:
-            if self.len is None:
-                print("Domain length is missing")
-        else:
-            self.len = domain_length
-
-        if domain_width is None:
-            if self.wid is None:
-                print("Domain width is missing")
-        else:
-            self.wid = domain_width
+        self.var_check(domain_length=domain_length, domain_width=domain_width)
 
         # Generate particle landing zone grid
         p_row = []
@@ -294,35 +332,7 @@ class HillModel:
         """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
 
                 # Check for previous entry for values
-        if domain_length is None:
-            if self.len is None:
-                print("Domain length is missing")
-        else:
-            self.len = domain_length
-
-        if domain_width is None:
-            if self.wid is None:
-                print("Domain width is missing")
-        else:
-            self.wid = domain_width
-
-        if x_offset is None:
-            if self.dx is None:
-                print("X offset is missing")
-        else:
-            self.dx = x_offset
-
-        if y_offset is None:
-            if self.dy is None:
-                print("Y offset is missing")
-        else:
-            self.dy = y_offset
-
-        if angle is None:
-            if self.alpha is None:
-                print("Angle of rotation is missing")
-        else:
-            self.alpha = angle*np.pi/180
+        self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
 
         # Calls hill_map and particle_map methods to get contour plot arguments
         self.hill_map(domain_length=self.len, domain_width=self.wid, x_offset=self.dx, y_offset=self.dy, angle=angle, combo="Yes")
@@ -348,24 +358,9 @@ class HillModel:
         """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
-        if domain_length is None:
-            if self.len is None:
-                print("Domain length is missing")
-        else:
-            self.len = domain_length
+        self.var_check(domain_length=domain_length, domain_width=domain_width, source=source)
 
-        if domain_width is None:
-            if self.wid is None:
-                print("Domain width is missing")
-        else:
-            self.wid = domain_width
-
-        if source is None:
-            if self.sou is None:
-                print("Fire source location is missing")
-        else:
-            self.sou = source
-
+        # Calls particle_map method to obtain particle landing locations
         self.particle_map(particle_file, grid_size=grid_size, domain_length=self.len, domain_width=domain_width, combo="Yes")
 
         # Generate grid for landing zones
@@ -390,23 +385,7 @@ class HillModel:
         """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
-        if domain_length is None:
-            if self.len is None:
-                print("Domain length is missing")
-        else:
-            self.len = domain_length
-
-        if domain_width is None:
-            if self.wid is None:
-                print("Domain width is missing")
-        else:
-            self.wid = domain_width
-
-        if source is None:
-            if self.sou is None:
-                print("Fire source location is missing")
-        else:
-            self.sou = source
+        self.var_check(domain_length=domain_length, domain_width=domain_width, source=source)
 
         # Calls particle_map method to obtain particle landing locations
         self.particle_map(particle_file, grid_size=grid_size, domain_length=self.len, domain_width=domain_width, combo="Yes")
