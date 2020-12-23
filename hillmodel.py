@@ -105,7 +105,7 @@ class HillModel:
         for j in range(0,self.nrows):
             for i in range(0,self.ncols):
                 if i>=x_sedge and j>=y_sedge and i<=(self.ncols-x_sedge) and j<=(self.nrows-y_sedge):
-                    p_data[j][i] = p_data[j][i]-z_offset
+                    p_data[j][i] = p_data[j][i]+z_offset
                     if p_data[j][i] < 0:
                         p_data[j][i] = 0
 
@@ -115,7 +115,7 @@ class HillModel:
                     f = min(factor_i,factor_j)**2
                     if f > 1:
                         f = 1
-                    z = (p_data[j][i]-z_offset)*(f)
+                    z = (p_data[j][i]+z_offset)*(f)
                     if z > 0:
                         p_data[j][i] = z
                     else:
@@ -127,7 +127,7 @@ class HillModel:
                     f = min(factor_i,factor_j)**2
                     if f > 1:
                         f = 1
-                    z = (p_data[j][i]-z_offset)*(f)
+                    z = (p_data[j][i]+z_offset)*(f)
                     if z > 0:
                         p_data[j][i] = z
                     else:
@@ -324,12 +324,13 @@ class HillModel:
             plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
             plt.show()
 
-    def combo_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None):
+    def combo_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, inc_size=10):
         """Plots a contour plot containing both the elevation of the hill and the particle landing zones"""
         """particle_file is the particle solution history file in the ensight format"""
         """grid_size is the desired size of the landing zones"""
         """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
         """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
+        """inc_size is the size of the increment for the contours"""
 
                 # Check for previous entry for values
         self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
@@ -338,9 +339,13 @@ class HillModel:
         self.hill_map(domain_length=self.len, domain_width=self.wid, x_offset=self.dx, y_offset=self.dy, angle=angle, combo="Yes")
         self.particle_map(particle_file, grid_size, combo="Yes")
 
+        # Calculate contour levels
+        z_max = inc_size + inc_size*round(self.ht_height/inc_size)
+        scale = np.arange(inc_size, z_max, inc_size)
+
         # Plots combined contour plot
         fig, ax = plt.subplots()
-        cs = ax.contour(self.t_y_grid, self.t_x_grid, self.point_data, cmap = 'YlOrBr', alpha = 0.75)
+        cs = ax.contour(self.t_y_grid, self.t_x_grid, self.point_data, scale, cmap = 'YlOrBr', alpha = 0.75)
         cs = ax.contourf(self.y_grid, self.x_grid, self.p_count, norm=colors.LogNorm(), cmap='plasma')
         cbar = fig.colorbar(cs)
 
