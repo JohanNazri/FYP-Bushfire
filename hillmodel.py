@@ -13,50 +13,38 @@ class HillModel:
         self.input_file = input_file
         self.len = self.wid = self.dx = self.dy = self.alpha = self.sou = None
 
-    def var_check(self, domain_length="Empty", domain_width="Empty", x_offset="Empty", y_offset="Empty", angle="Empty", source="Empty"):
+    def var_check(self, domain_length="", domain_width="", x_offset="", y_offset="", angle="", source=""):
         """Check if variables have been defined previously"""
 
-        if domain_length != "Empty":
-            if domain_length is None:
-                if self.len is None:
-                    print("Domain length is missing.")
-            else:
-                self.len = domain_length
+        if domain_length:
+            self.len = domain_length
+        elif domain_length is None and self.len is None:
+            print("Domain length is missing.")
 
-        if domain_width != "Empty":
-            if domain_width is None:
-                if self.wid is None:
-                    print("Domain width is missing.")
-            else:
-                self.wid = domain_width
+        if domain_width:
+            self.wid = domain_width
+        elif domain_width is None and self.wid is None:
+            print("Domain width is missing.")
                 
-        if x_offset != "Empty":
-            if x_offset is None:
-                if self.dx is None:
-                    print("X offset is missing.")
-            else:
-                self.dx = x_offset
+        if x_offset:
+            self.dx = x_offset
+        elif x_offset is None and self.dx is None:
+            print("X offset is missing.")
                 
-        if y_offset != "Empty":
-            if y_offset is None:
-                if self.dy is None:
-                    print("Y offset is missing.")
-            else:
-                self.dy = y_offset
+        if y_offset:
+            self.dy = y_offset
+        elif y_offset is None and self.dy is None:
+            print("Y offset is missing.")
 
-        if angle != "Empty":
-            if angle is None:
-                if self.alpha is None:
-                    print("Angle of rotation is missing.")
-            else:
-                self.alpha = angle*np.pi/180
+        if angle:
+            self.alpha = angle*np.pi/180
+        elif angle is None and self.alpha is None:
+            print("Angle of rotation is missing.")
 
-        if source != "Empty":
-            if source is None:
-                if self.sou is None:
-                    print("Fire source location is missing")
-            else:
-                self.sou = source
+        if source:
+            self.sou = source
+        elif source is None and self.sou is None:
+            print("Fire source location is missing")
 
     def save_file(self, file_name="XYZHillData.txt"):
         """Saves the DEM file in the XYZ format"""
