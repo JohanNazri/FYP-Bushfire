@@ -47,8 +47,8 @@ class HillModel:
             print("Fire source location is missing")
 
     def save_file(self, file_name="XYZHillData.txt"):
-        """Saves the DEM file in the XYZ format"""
-        """file_name is the desired file name"""
+        """Saves the DEM file in the XYZ format
+        file_name is the desired file name"""
 
         txt_file = open(file_name,"w")
 
@@ -58,33 +58,26 @@ class HillModel:
         txt_file.close()
 
     def EA2XYZ(self, x_smooth=0, y_smooth=0, z_offset=0, preview="N", save="Y"):
-        """Converts from ESRI ASCII to XYZ"""
-        """x_smooth & y_smooth are percentage values. The values are used to help move the values of the elevation at the edges to be closer to 0"""
-        """z_offset is used to translate the elevation by a constant amount"""
-        """preview ("Y"/"N") allows user to preview the surface model"""
-        """save allows user to save the XYZ file"""
-
-        data_points = []
-        count = 0
+        """Converts from ESRI ASCII to XYZ
+        x_smooth & y_smooth are percentage values. The values are used to help move the values of the elevation at the edges to be closer to 0
+        z_offset is used to translate the elevation by a constant amount
+        preview ("Y"/"N") allows user to preview the surface model
+        save allows user to save the XYZ file"""
 
         with open(self.input_file) as points:
-            data_reader = csv.reader(points, delimiter=' ')
-            for data in data_reader:
+            all_data = list(csv.reader(points, delimiter=' '))
+            for data in all_data:
                 while '' in data:
                     data.remove('')
-                if count > 5: # Converts elevation values to float
-                    for index, number in enumerate(data):
-                        data[index] = float(number)
-                count += 1
-                data_points.append(data)
+            h_data = all_data[6:]
+            for i, data in enumerate(h_data):
+                for j, number in enumerate(data):
+                    h_data[i][j] = float(number)
                 
-        self.ncols = int(data_points[0][1]) # Reads number of columns
-        self.nrows = int(data_points[1][1]) # Reads number of rows
-        self.cellsize = float(data_points[2][1]) # Reads cell size
-        nodata_value = int(data_points[3][1]) # Reads no data value
-
-        # Obtains elevation values
-        p_data = data_points[6:]
+        self.ncols = int(all_data[0][1]) # Reads number of columns
+        self.nrows = int(all_data[1][1]) # Reads number of rows
+        self.cellsize = float(all_data[2][1]) # Reads cell size
+        nodata_value = int(all_data[3][1]) # Reads no data value
 
         # Edge Smoothing
         x_sedge = round(self.ncols*x_smooth/100) 
@@ -93,9 +86,9 @@ class HillModel:
         for j in range(0,self.nrows):
             for i in range(0,self.ncols):
                 if i>=x_sedge and j>=y_sedge and i<=(self.ncols-x_sedge) and j<=(self.nrows-y_sedge):
-                    p_data[j][i] = p_data[j][i]+z_offset
-                    if p_data[j][i] < 0:
-                        p_data[j][i] = 0
+                    h_data[j][i] = h_data[j][i]+z_offset
+                    if h_data[j][i] < 0:
+                        h_data[j][i] = 0
 
                 elif i<x_sedge or j<y_sedge:
                     factor_i = i/(x_sedge)
@@ -103,11 +96,11 @@ class HillModel:
                     f = min(factor_i,factor_j)**2
                     if f > 1:
                         f = 1
-                    z = (p_data[j][i]+z_offset)*(f)
+                    z = (h_data[j][i]+z_offset)*(f)
                     if z > 0:
-                        p_data[j][i] = z
+                        h_data[j][i] = z
                     else:
-                        p_data[j][i] = 0
+                        h_data[j][i] = 0
 
                 elif i>(self.ncols-x_sedge) or j>(self.nrows-y_sedge):
                     factor_i = (self.ncols-i)/(self.ncols-x_sedge)
@@ -115,16 +108,16 @@ class HillModel:
                     f = min(factor_i,factor_j)**2
                     if f > 1:
                         f = 1
-                    z = (p_data[j][i]+z_offset)*(f)
+                    z = (h_data[j][i]+z_offset)*(f)
                     if z > 0:
-                        p_data[j][i] = z
+                        h_data[j][i] = z
                     else:
-                        p_data[j][i] = 0
+                        h_data[j][i] = 0
 
                 else:
-                    p_data[j][i] = 0
+                    h_data[j][i] = 0
 
-                self.point_data = p_data
+                self.point_data = h_data
 
         # Preview of the 3D surface
         if preview == "Y":
@@ -163,11 +156,11 @@ class HillModel:
             print("The converted XYZ file was not saved.")
 
     def hill_map(self, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, inc_size=10, combo=None):
-        """Generate contour plot of the hill"""
-        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
-        """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
-        """inc_size is the size of the increment for the contours"""
-        """combo is for use with other plots"""
+        """Generate contour plot of the hill
+        domain_length & domain_width are the length and width of the domain in ANSYS Fluent
+        x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler
+        inc_size is the size of the increment for the contours
+        combo is for use with other plots"""
 
         # Check for previous entry for values
         self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
@@ -206,6 +199,12 @@ class HillModel:
         if combo == "Yes":
              self.t_x_grid, self.t_y_grid = t_x_grid, t_y_grid
         else:
+
+            max_list = []
+            for row in self.point_data:
+                max_list.append(max(row))
+            self.ht_height = max(max_list)
+
             # Calculate contour levels
             z_max = inc_size + inc_size*round(self.ht_height/inc_size)
             scale = np.arange(inc_size, z_max, inc_size)
@@ -220,62 +219,54 @@ class HillModel:
             plt.show()
 
     def add_particles(self, particle_file, domain_length=None, domain_width=None):
-        """Takes data from particle solution history in the ensight format"""
-        """particle_file is the particle solution history file in the ensight format"""
-        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+        """Takes data from particle solution history in the ensight format
+        particle_file is the particle solution history file in the ensight format
+        domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
         self.var_check(domain_length=domain_length, domain_width=domain_width)
 
         print(f"Reading {particle_file}")
-        particles = []
-        count = 0
+        
 
         # Takes values from file
+        particles = []
         with open(particle_file) as points:
-            data_reader = csv.reader(points, delimiter=' ')
-            for data in data_reader:
-                while '' in data:
-                    data.remove('')
-                if count > 2:
-                    for number in data:
-                        if len(data)<4: # Check for negative numbers
-                            bad_num = data[-1]
-                            # print(bad_num)
-                            temp_num = []
-                            for char in bad_num:
-                                temp_num.append(char)
-                            exp_index = bad_num.index('e')
-                            y_val = ''.join(bad_num[0:exp_index+4])
-                            z_val = ''.join(bad_num[exp_index+4:])
-                            data = data[0:2]
-                            data.append(y_val)
-                            data.append(z_val)
-                    for index,number in enumerate(data):
-                        data[index] = float(number)
-                count = count + 1
-                particles.append(data)
+            p_data = list(csv.reader(points, delimiter=' '))
+            particles = p_data[3:]
+            for particle in particles:
+                while '' in particle:
+                    particle.remove('')
+
+                if len(particle)<4:
+                    bad_num = particle.pop()
+                    exp_index = bad_num.index('e')
+                    particle.append(bad_num[0:exp_index+4])
+                    particle.append(bad_num[exp_index+4:])
+
+            for i, data in enumerate(particles):
+                for j, number in enumerate(data):
+                    particles[i][j] = float(number)
                 
-        print(f"{len(particles[3:])} particles released.")
-        part_data = []
+        print(f"{len(particles)} particles released.")
 
         # Check if particle has landed
-        for point in particles[3:]:
-            if point[1]>self.len*0.9 or point[2]<self.wid*0.1 or point[2]>self.wid*0.9:
-                if point[3]<0.01:
-                    part_data.append(point)
-            else:
-                part_data.append(point)
+        trap_particles = []
+        for particle in particles:
+            if particle[1]<self.len*0.9 and particle[1]>self.len*0.1 and particle[2]>self.wid*0.1 and particle[2]<self.wid*0.9:
+                trap_particles.append(particle)
+            elif particle[3]<0.01:
+                    trap_particles.append(particle)
 
-        self.trap_particles = part_data
-        print(f"{len(particles[3:])-len(self.trap_particles)} particle(s) escaped.")
+        self.trap_particles = trap_particles
+        print(f"{len(particles)-len(self.trap_particles)} particle(s) escaped.")
     
     def particle_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, combo=None):
-        """Plots contour map of the particle landing zones"""
-        """particle_file is the particle solution history file in the ensight format"""
-        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
-        """grid_size is the desired size of the landing zones"""
-        """combo is for use with alternate graphs"""
+        """Plots contour map of the particle landing zones
+        particle_file is the particle solution history file in the ensight format
+        domain_length & domain_width are the length and width of the domain in ANSYS Fluent
+        grid_size is the desired size of the landing zones
+        combo is for use with alternate graphs"""
 
         # Calls the add_particles method to get data from file
         self.add_particles(particle_file)
@@ -313,12 +304,12 @@ class HillModel:
             plt.show()
 
     def combo_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, inc_size=10):
-        """Plots a contour plot containing both the elevation of the hill and the particle landing zones"""
-        """particle_file is the particle solution history file in the ensight format"""
-        """grid_size is the desired size of the landing zones"""
-        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
-        """x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler"""
-        """inc_size is the size of the increment for the contours"""
+        """Plots a contour plot containing both the elevation of the hill and the particle landing zones
+        particle_file is the particle solution history file in the ensight format
+        grid_size is the desired size of the landing zones
+        domain_length & domain_width are the length and width of the domain in ANSYS Fluent
+        x_offset, y_offset & angle are the transformations applied to the hill in Designmodeler
+        inc_size is the size of the increment for the contours"""
 
                 # Check for previous entry for values
         self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
@@ -344,11 +335,11 @@ class HillModel:
         plt.show()
 
     def landing_bar(self, particle_file, source=None, grid_size=5, domain_length=None, domain_width=None):
-        """Plots the distribution of landed particles downwind from the heat source"""
-        """particle_file is the particle solution history file in the ensight format"""
-        """source is the x-position of the heat source"""
-        """grid_size is the desired size of the landing zones"""
-        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+        """Plots the distribution of landed particles downwind from the heat source
+        particle_file is the particle solution history file in the ensight format
+        source is the x-position of the heat source
+        grid_size is the desired size of the landing zones
+        domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
         self.var_check(domain_length=domain_length, domain_width=domain_width, source=source)
@@ -371,11 +362,11 @@ class HillModel:
         plt.show()
 
     def sum_line(self, particle_file, source=None, grid_size=5, domain_length=None, domain_width=None):
-        """Plots the cumulative sum of landed particles x distance away from the heat source"""
-        """particle_file is the particle solution history file in the ensight format"""
-        """source is the x-position of the heat source"""
-        """grid_size is the desired size of the landing zones"""
-        """domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
+        """Plots the cumulative sum of landed particles x distance away from the heat source
+        particle_file is the particle solution history file in the ensight format
+        source is the x-position of the heat source
+        grid_size is the desired size of the landing zones
+        domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
         self.var_check(domain_length=domain_length, domain_width=domain_width, source=source)
