@@ -1,5 +1,7 @@
 # Documentation
 ## Quick Start Guide
+Steps on how to use the file with example code using the askervein.asc file and default.mpg0009 file provided in the repo.
+
 1. The HillModel class takes an ESRI Ascii file as an input to create an instance.
 ```python
 askervein = HillModel("askervein.asc")
