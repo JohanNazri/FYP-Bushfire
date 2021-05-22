@@ -6,19 +6,19 @@ Steps on how to use the file with example code using the `askervein.asc` file an
 ```python
 askervein = HillModel("askervein.asc")
 ```
-2. Use the `EA2XYZ` method to convert the ESRI Ascii format to the XYZ file format.(Note: the EA2XYZ method is set to save by default, to prevent this "N" is passed to the save argument)
+2. Use the `EA2XYZ` method to convert the ESRI Ascii format to the XYZ file format.(Note: the `EA2XYZ` method is set to save by default, to prevent this "N" is passed to the `save` argument)
 ```python
 askervein.EA2XYZ(save = "N")
 ```
-3. Use the `hill_map` method to create contour plots of the elecation of the hill.
+3. Use the `hill_map` method to create contour plots of the elevation of the hill.
 ```python
 askervein.hill_map(domain_length = 3200, domain_width = 4000, x_offset = 1060, y_offset = 3800, angle = 227)
 ```
-4. Use the `combo_map` method to include the landing zones of particles from particle files using the ensight file format.
+4. Use the `combo_map` method to include the landing zones of particles from particle files using the Ensight file format.
 ```python
 askervein.combo_map("default.mpg0009")
 ```
-5. Use the `landing_bar` method to plot the distribution of the particle landings downwind from the source of the particles. The x-coordinate of the source of the particles must be provided to the source argument.
+5. Use the `landing_bar` method to plot the distribution of the particle landings downwind from the source of the particles. The x-coordinate of the source of the particles must be provided to the `source`argument.
 ```python
 askervein.landing_bar("default.mpg0009", source = 1000)
 ```
