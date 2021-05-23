@@ -2,7 +2,6 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib import colors
 from datetime import datetime
 
 class HillModel:
@@ -25,12 +24,12 @@ class HillModel:
             self.wid = domain_width
         elif domain_width is None and self.wid is None:
             print("Domain width is missing.")
-                
+
         if x_offset:
             self.dx = x_offset
         elif x_offset is None and self.dx is None:
             print("X offset is missing.")
-                
+
         if y_offset:
             self.dy = y_offset
         elif y_offset is None and self.dy is None:
@@ -54,7 +53,7 @@ class HillModel:
 
         for j in range(0,self.nrows):
             for i in range(0,self.ncols):
-                txt_file.write(f"{i*self.cellsize}\t{j*self.cellsize}\t{self.point_data[j][i]}\n") 
+                txt_file.write(f"{i*self.cellsize}\t{j*self.cellsize}\t{self.point_data[j][i]}\n")
         txt_file.close()
 
     def EA2XYZ(self, x_smooth=0, y_smooth=0, z_offset=0, preview="N", save="Y"):
@@ -73,14 +72,14 @@ class HillModel:
             for i, data in enumerate(h_data):
                 for j, number in enumerate(data):
                     h_data[i][j] = float(number)
-                
+
         self.ncols = int(all_data[0][1]) # Reads number of columns
         self.nrows = int(all_data[1][1]) # Reads number of rows
         self.cellsize = float(all_data[2][1]) # Reads cell size
         nodata_value = int(all_data[3][1]) # Reads no data value
 
         # Edge Smoothing
-        x_sedge = round(self.ncols*x_smooth/100) 
+        x_sedge = round(self.ncols*x_smooth/100)
         y_sedge = round(self.nrows*y_smooth/100)
 
         for j in range(0,self.nrows):
@@ -163,37 +162,41 @@ class HillModel:
         combo is for use with other plots"""
 
         # Check for previous entry for values
-        self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
+        self.var_check(domain_length = domain_length, domain_width = domain_width, x_offset = x_offset, y_offset = y_offset, angle = angle)
 
         # Generates grid using original coordinates
-        x_grid, y_grid = np.meshgrid(np.linspace(0, self.ncols*self.cellsize, self.ncols),np.linspace(0, self.nrows*self.cellsize, self.nrows) )
+        x_grid, y_grid = np.meshgrid(
+            np.linspace(
+                0,
+                self.ncols*self.cellsize,
+                self.ncols
+                ),
+            np.linspace(
+                0,
+                self.nrows*self.cellsize,
+                self.nrows
+                )
+            )
 
-        t_x_grid = []
-        t_y_grid = []
-        empty_row = []
-
-        # Generates grid of zeros in transformed coordinates
-        for j in range(0,self.nrows):
-            for i in range(0,self.ncols):
-                empty_row.append(0)
-            t_x_grid.append(empty_row)
-            empty_row = []
-
-        empty_row = []
-
-        for j in range(0,self.nrows):
-            for i in range(0,self.ncols):
-                empty_row.append(0)
-            t_y_grid.append(empty_row)
-            empty_row = []
+        # Generates grid of zeros for transformed coordinates
+        t_x_grid = [
+            [0]*self.ncols for i in range(
+                self.nrows
+                )
+            ]
+        t_y_grid = [
+            [0]*self.ncols for i in range(
+                self.nrows
+                )
+            ]
 
         # Transforms original coordinates and inserts into transformed grid
-        for j in range(0,self.nrows):
-            for i in range(0,self.ncols):           
-                x_prime = x_grid[j][i]*np.cos(self.alpha)-y_grid[j][i]*np.sin(self.alpha)
-                y_prime = x_grid[j][i]*np.sin(self.alpha)+y_grid[j][i]*np.cos(self.alpha)
-                t_x_grid[j][i] = x_prime+self.dx
-                t_y_grid[j][i] = y_prime+self.dy
+        for j in range(0, self.nrows):
+            for i in range(0, self.ncols):
+                x_prime = x_grid[j][i] * np.cos(self.alpha) - y_grid[j][i] * np.sin(self.alpha)
+                y_prime = x_grid[j][i] * np.sin(self.alpha) + y_grid[j][i] * np.cos(self.alpha)
+                t_x_grid[j][i] = x_prime + self.dx
+                t_y_grid[j][i] = y_prime + self.dy
 
         # For use with other graphs
         if combo == "Yes":
@@ -203,10 +206,11 @@ class HillModel:
             max_list = []
             for row in self.point_data:
                 max_list.append(max(row))
+
             self.ht_height = max(max_list)
 
             # Calculate contour levels
-            z_max = inc_size + inc_size*round(self.ht_height/inc_size)
+            z_max = inc_size + inc_size * round(self.ht_height / inc_size)
             scale = np.arange(inc_size, z_max, inc_size)
 
             # Plot contour plot
@@ -215,7 +219,7 @@ class HillModel:
             plt.xlabel('Y-Position', fontsize=12)
             plt.xlim(self.wid, 0)
             plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
-            plt.ylim(0,self.len)
+            plt.ylim(0, self.len)
             plt.show()
 
     def add_particles(self, particle_file, domain_length=None, domain_width=None):
@@ -224,16 +228,20 @@ class HillModel:
         domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
-        self.var_check(domain_length=domain_length, domain_width=domain_width)
+        self.var_check(domain_length = domain_length, domain_width = domain_width)
 
         print(f"Reading {particle_file}")
-        
 
         # Takes values from file
         particles = []
         with open(particle_file) as points:
-            p_data = list(csv.reader(points, delimiter=' '))
+            p_data = list(
+                csv.reader(
+                    points, delimiter=' '
+                    )
+                )
             particles = p_data[3:]
+
             for particle in particles:
                 while '' in particle:
                     particle.remove('')
@@ -247,20 +255,22 @@ class HillModel:
             for i, data in enumerate(particles):
                 for j, number in enumerate(data):
                     particles[i][j] = float(number)
-                
+
         print(f"{len(particles)} particles released.")
 
         # Check if particle has landed
         trap_particles = []
         for particle in particles:
-            if particle[1]<self.len*0.9 and particle[1]>self.len*0.1 and particle[2]>self.wid*0.1 and particle[2]<self.wid*0.9:
+            if particle[1] < self.len*0.9 and particle[1] > self.len*0.1 and particle[2] > self.wid*0.1 and particle[2] < self.wid*0.9:
                 trap_particles.append(particle)
+
             elif particle[3]<0.01:
                     trap_particles.append(particle)
 
         self.trap_particles = trap_particles
+
         print(f"{len(particles)-len(self.trap_particles)} particle(s) escaped.")
-    
+
     def particle_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, combo=None):
         """Plots contour map of the particle landing zones
         particle_file is the particle solution history file in the ensight format
@@ -270,37 +280,38 @@ class HillModel:
 
         # Calls the add_particles method to get data from file
         self.add_particles(particle_file)
-        
+
         # Check for previous entry for values
-        self.var_check(domain_length=domain_length, domain_width=domain_width)
+        self.var_check(domain_length = domain_length, domain_width = domain_width)
 
         # Generate particle landing zone grid
         p_row = []
         p_count = []
-        for j in range(0,self.wid//grid_size):
-            for i in range(0,self.len//grid_size):
+        for j in range(0, self.wid // grid_size):
+            for i in range(0, self.len // grid_size):
                 p_row.append(0)
             p_count.append(p_row)
             p_row = []
 
         # Counts number of particles in each grid square
         for particle in self.trap_particles:
-            p_count[int(round(particle[2]//grid_size))][int(round(particle[1]//grid_size))] += 1
+            p_count[int(round(particle[2] // grid_size))][int(round(particle[1] // grid_size))] += 1
         self.p_count = p_count
 
         # Grid for contour plot
-        x_co = np.linspace(0,self.len,self.len//grid_size)
-        y_co = np.linspace(0,self.wid,self.wid//grid_size)
-        x_grid, y_grid = np.meshgrid(x_co,y_co)
+        x_co = np.linspace(0, self.len,self.len // grid_size)
+        y_co = np.linspace(0, self.wid,self.wid // grid_size)
+        x_grid, y_grid = np.meshgrid(x_co, y_co)
 
         if combo == "Yes":
             self.x_grid, self.y_grid = x_grid, y_grid
+
         else:
             fig, ax = plt.subplots()
-            cs = ax.contourf(y_grid, x_grid, p_count, norm=colors.LogNorm(), cmap='plasma')
+            cs = ax.contourf(y_grid, x_grid, p_count, norm = mpl.colors.LogNorm(), cmap = 'plasma')
             cbar = fig.colorbar(cs)
-            plt.xlabel('Y-Position', fontsize=12)
-            plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
+            plt.xlabel('Y-Position', fontsize = 12)
+            plt.ylabel('X-Position (Streamwise-Direction)', fontsize = 12)
             plt.show()
 
     def combo_map(self, particle_file, grid_size=5, domain_length=None, domain_width=None, x_offset=None, y_offset=None, angle=None, inc_size=10):
@@ -312,26 +323,26 @@ class HillModel:
         inc_size is the size of the increment for the contours"""
 
                 # Check for previous entry for values
-        self.var_check(domain_length=domain_length, domain_width=domain_width, x_offset=x_offset, y_offset=y_offset, angle=angle)
+        self.var_check(domain_length = domain_length, domain_width = domain_width, x_offset = x_offset, y_offset = y_offset, angle = angle)
 
         # Calls hill_map and particle_map methods to get contour plot arguments
-        self.hill_map(domain_length=self.len, domain_width=self.wid, x_offset=self.dx, y_offset=self.dy, angle=angle, combo="Yes")
-        self.particle_map(particle_file, grid_size, combo="Yes")
+        self.hill_map(domain_length = self.len, domain_width = self.wid, x_offset = self.dx, y_offset = self.dy, angle = angle, combo = "Yes")
+        self.particle_map(particle_file, grid_size, combo = "Yes")
 
         # Calculate contour levels
-        z_max = inc_size + inc_size*round(self.ht_height/inc_size)
+        z_max = inc_size + inc_size * round(self.ht_height / inc_size)
         scale = np.arange(inc_size, z_max, inc_size)
 
         # Plots combined contour plot
         fig, ax = plt.subplots()
         cs = ax.contour(self.t_y_grid, self.t_x_grid, self.point_data, scale, cmap = 'YlOrBr', alpha = 0.75)
-        cs = ax.contourf(self.y_grid, self.x_grid, self.p_count, norm=colors.LogNorm(), cmap='plasma')
+        cs = ax.contourf(self.y_grid, self.x_grid, self.p_count, norm = mpl.colors.LogNorm(), cmap = 'plasma')
         cbar = fig.colorbar(cs)
 
-        plt.xlabel('Y-Position', fontsize=12)
+        plt.xlabel('Y-Position', fontsize = 12)
         plt.xlim(self.wid, 0)
-        plt.ylabel('X-Position (Streamwise-Direction)', fontsize=12)
-        plt.ylim(0,self.len)
+        plt.ylabel('X-Position (Streamwise-Direction)', fontsize = 12)
+        plt.ylim(0, self.len)
         plt.show()
 
     def landing_bar(self, particle_file, source=None, grid_size=5, domain_length=None, domain_width=None):
@@ -342,23 +353,23 @@ class HillModel:
         domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
-        self.var_check(domain_length=domain_length, domain_width=domain_width, source=source)
+        self.var_check(domain_length = domain_length, domain_width = domain_width, source = source)
 
         # Calls particle_map method to obtain particle landing locations
-        self.particle_map(particle_file, grid_size=grid_size, domain_length=self.len, domain_width=domain_width, combo="Yes")
+        self.particle_map(particle_file, grid_size = grid_size, domain_length = self.len, domain_width = domain_width, combo = "Yes")
 
         # Generate grid for landing zones
-        x_co = np.linspace(0,self.len,self.len//grid_size)
+        x_co = np.linspace(0, self.len,self.len // grid_size)
 
         # Counts number of particles that land x distance away from source
         bar_count = [sum(row[i] for row in self.p_count) for i in range(len(self.p_count[0]))]
 
         # Plots bar chart
         fig, ax = plt.subplots()
-        cs =ax.bar(x_co-self.sou, bar_count, width = 5, alpha = 0.5)
-        plt.xlim(0,self.len-self.sou)
-        plt.xlabel('Distance from the Heat Source', fontsize=12)
-        plt.ylabel('Number of Landed Particles', fontsize=12)
+        cs = ax.bar(x_co-self.sou, bar_count, width = 5, alpha = 0.5)
+        plt.xlim(0, self.len - self.sou)
+        plt.xlabel('Distance from the Heat Source', fontsize = 12)
+        plt.ylabel('Number of Landed Particles', fontsize = 12)
         plt.show()
 
     def sum_line(self, particle_file, source=None, grid_size=5, domain_length=None, domain_width=None):
@@ -369,13 +380,13 @@ class HillModel:
         domain_length & domain_width are the length and width of the domain in ANSYS Fluent"""
 
         # Check for previous entry for values
-        self.var_check(domain_length=domain_length, domain_width=domain_width, source=source)
+        self.var_check(domain_length = domain_length, domain_width = domain_width, source = source)
 
         # Calls particle_map method to obtain particle landing locations
-        self.particle_map(particle_file, grid_size=grid_size, domain_length=self.len, domain_width=domain_width, combo="Yes")
+        self.particle_map(particle_file, grid_size = grid_size, domain_length = self.len, domain_width = domain_width, combo = "Yes")
 
         # Generates grid for particle landing zones
-        x_co = np.linspace(0,self.len,self.len//grid_size)
+        x_co = np.linspace(0, self.len,self.len // grid_size)
         bar_count = [sum(row[i] for row in self.p_count) for i in range(len(self.p_count[0]))]
 
         # Converts simple count to cumulative sum
@@ -388,10 +399,10 @@ class HillModel:
 
         # Plots line graph
         fig, ax = plt.subplots()
-        cs =ax.plot(x_co-self.sou, line_count)
-        plt.xlim(0,self.len-self.sou)
-        plt.fill_between(x_co-self.sou, line_count)
-        plt.xlabel('Distance from the Heat Source', fontsize=12)
-        plt.ylim(0, line_count[-1]*1.1)
-        plt.ylabel('Cumulative Sum of Landed Particles', fontsize=12)
+        cs =ax.plot(x_co - self.sou, line_count)
+        plt.xlim(0, self.len - self.sou)
+        plt.fill_between(x_co - self.sou, line_count)
+        plt.xlabel('Distance from the Heat Source', fontsize = 12)
+        plt.ylim(0, line_count[-1] * 1.1)
+        plt.ylabel('Cumulative Sum of Landed Particles', fontsize = 12)
         plt.show()
